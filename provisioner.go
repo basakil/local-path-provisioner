@@ -235,6 +235,10 @@ func (p *LocalPathProvisioner) isSharedFilesystem() (bool, error) {
 	return false, fmt.Errorf("both nodePathMap and sharedFileSystemPath are unconfigured")
 }
 
+func getPathFromTermString(pathTerm string) (string, error) {
+
+}
+
 func (p *LocalPathProvisioner) Provision(ctx context.Context, opts pvController.ProvisionOptions) (*v1.PersistentVolume, pvController.ProvisioningState, error) {
 	pvc := opts.PVC
 	node := opts.SelectedNode
@@ -268,6 +272,7 @@ func (p *LocalPathProvisioner) Provision(ctx context.Context, opts pvController.
 			requestedPath = storageClass.Parameters["nodePath"]
 		}
 	}
+
 	basePath, err := p.getPathOnNode(nodeName, requestedPath)
 	if err != nil {
 		return nil, pvController.ProvisioningFinished, err
@@ -275,6 +280,12 @@ func (p *LocalPathProvisioner) Provision(ctx context.Context, opts pvController.
 
 	name := opts.PVName
 	folderName := strings.Join([]string{name, opts.PVC.Namespace, opts.PVC.Name}, "_")
+
+	if pathTerm, ok := storageClass.Parameters["directoryNamingTerm"]; ok {
+		if folderName, err = getPathFromTermString(pathTerm); err != nil {
+			return nil, pvController.ProvisioningFinished, err
+		}
+	}
 
 	path := filepath.Join(basePath, folderName)
 	if nodeName == "" {
