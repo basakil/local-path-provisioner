@@ -235,8 +235,9 @@ func (p *LocalPathProvisioner) isSharedFilesystem() (bool, error) {
 	return false, fmt.Errorf("both nodePathMap and sharedFileSystemPath are unconfigured")
 }
 
-func getPathFromTermString(pathTerm string) (string, error) {
-
+func getPathFromTermString(ctx context.Context, opts pvController.ProvisionOptions, pathTerm string) (string, error) {
+	// asumes: directoryNamingTerm: "pvc.namespace:_:pvc.name"
+	return strings.Join([]string{opts.PVC.Namespace, opts.PVC.Name}, "_"), nil
 }
 
 func (p *LocalPathProvisioner) Provision(ctx context.Context, opts pvController.ProvisionOptions) (*v1.PersistentVolume, pvController.ProvisioningState, error) {
@@ -282,9 +283,12 @@ func (p *LocalPathProvisioner) Provision(ctx context.Context, opts pvController.
 	folderName := strings.Join([]string{name, opts.PVC.Namespace, opts.PVC.Name}, "_")
 
 	if pathTerm, ok := storageClass.Parameters["directoryNamingTerm"]; ok {
-		if folderName, err = getPathFromTermString(pathTerm); err != nil {
+		logrus.Infof("directoryNamingTerm found for pvc %s/%s as: %s .", pvc.Namespace, pvc.Name, pathTerm)
+		if folderName, err = getPathFromTermString(ctx, opts, pathTerm); err != nil {
+			logrus.Errorf("directoryNamingTerm resolution error for pvc %s/%s as: %v .", pvc.Namespace, pvc.Name, err)
 			return nil, pvController.ProvisioningFinished, err
 		}
+		logrus.Debugf("directoryNamingTerm resolution for pvc %s/%s as: %s .", pvc.Namespace, pvc.Name, folderName)
 	}
 
 	path := filepath.Join(basePath, folderName)
